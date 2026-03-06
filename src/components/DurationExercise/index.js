@@ -1,99 +1,120 @@
 import React, { useEffect, useRef, useState } from "react";
 
-function pad2(n) {
-  return String(n).padStart(2, "0");
+const COUNTDOWN_START = 60;
+
+function pad2(value) {
+  return String(value).padStart(2, "0");
 }
 
 function formatMMSS(totalSeconds) {
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
+  const safeSeconds = Math.max(totalSeconds, 0);
+  const minutes = Math.floor(safeSeconds / 60);
+  const seconds = safeSeconds % 60;
   return `${pad2(minutes)}:${pad2(seconds)}`;
 }
 
 export default function DurationExercise({ name }) {
+  const [mode, setMode] = useState("up");
   const [seconds, setSeconds] = useState(0);
   const [running, setRunning] = useState(false);
   const intervalRef = useRef(null);
 
   useEffect(() => {
-    // start or stop interval based on `running`
-    if (running) {
-      intervalRef.current = setInterval(() => {
-        setSeconds((s) => s + 1);
-      }, 1000);
+    if (!running) {
+      return undefined;
     }
 
-    // cleanup when running changes or component unmounts
+    intervalRef.current = setInterval(() => {
+      setSeconds((currentSeconds) => {
+        if (mode === "up") {
+          return currentSeconds + 1;
+        }
+
+        if (currentSeconds <= 1) {
+          setRunning(false);
+          return 0;
+        }
+
+        return currentSeconds - 1;
+      });
+    }, 1000);
+
     return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
+      clearInterval(intervalRef.current);
       intervalRef.current = null;
     };
-  }, [running]);
+  }, [running, mode]);
 
-  const handleStart = () => setRunning(true);
-  const handleStop = () => setRunning(false);
+  useEffect(() => {
+    setRunning(false);
+    setSeconds(mode === "up" ? 0 : COUNTDOWN_START);
+  }, [mode]);
+
+  const handleStart = () => {
+    if (mode === "down" && seconds === 0) {
+      setSeconds(COUNTDOWN_START);
+    }
+    setRunning(true);
+  };
+
+  const handleStop = () => {
+    setRunning(false);
+  };
 
   const handleReset = () => {
     setRunning(false);
-    setSeconds(0);
+    setSeconds(mode === "up" ? 0 : COUNTDOWN_START);
   };
 
   return (
-    <div>
-      <h2 style={{ textAlign: "center", marginTop: 6 }}>{name.toUpperCase()}</h2>
+    <div className="exercise-layout">
+      <div className="exercise-media" aria-hidden="true" />
 
-      <div style={styles.placeholder} />
+      <div className="exercise-value">{formatMMSS(seconds)}</div>
 
-      <div style={styles.bigNumber}>{formatMMSS(seconds)}</div>
-
-      {!running ? (
-        <button style={styles.button} onClick={handleStart}>
-          Start
-        </button>
-      ) : (
-        <button style={styles.button} onClick={handleStop}>
-          Stop
-        </button>
-      )}
-
-      <button style={styles.button} onClick={handleReset}>
-        Reset
+      <button className="action-button" onClick={handleStart}>
+        Start
       </button>
 
-      <div style={styles.note}>
-        Digits are padded (example: 01:05 instead of 1:5).
-      </div>
+      <button className="action-button" onClick={handleStop}>
+        Stop
+      </button>
+
+      <hr className="divider" />
+
+      <p className="mode-title">Count Mode</p>
+
+      <label className="mode-option">
+        <input
+          type="radio"
+          name={`${name}-mode`}
+          value="up"
+          checked={mode === "up"}
+          onChange={() => setMode("up")}
+        />
+        <span>Count Up</span>
+      </label>
+
+      <label className="mode-option">
+        <input
+          type="radio"
+          name={`${name}-mode`}
+          value="down"
+          checked={mode === "down"}
+          onChange={() => setMode("down")}
+        />
+        <span>Count Down</span>
+      </label>
+
+      <hr className="divider" />
+
+      <p className="helper-text">
+        Count down starts from {formatMMSS(COUNTDOWN_START)}.
+      </p>
+
+      <button className="action-button" onClick={handleReset}>
+        Reset
+      </button>
     </div>
   );
 }
-
-const styles = {
-  placeholder: {
-    height: 140,
-    background: "#e9e9e9",
-    borderRadius: 12,
-    margin: "14px 0",
-  },
-  bigNumber: {
-    textAlign: "center",
-    fontSize: 54,
-    fontWeight: 500,
-    margin: "10px 0 18px",
-  },
-  button: {
-    width: "100%",
-    padding: "12px 10px",
-    borderRadius: 10,
-    border: "1px solid #bbb",
-    background: "white",
-    cursor: "pointer",
-    fontSize: 18,
-    marginBottom: 10,
-  },
-  note: {
-    fontSize: 12,
-    opacity: 0.7,
-    marginTop: 6,
-    textAlign: "center",
-  },
-};
